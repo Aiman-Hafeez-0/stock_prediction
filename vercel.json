@@ -1,9 +1,9 @@
 {
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/outputs/dashboard_dynamic.html",
-      "permanent": false
-    }
+  "builds": [
+    { "src": "**/*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/", "dest": "/outputs/dashboard_dynamic.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
