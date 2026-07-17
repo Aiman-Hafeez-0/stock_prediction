@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Return Prediction — Model Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F7F8FA; --panel:#FFFFFF; --panel-2:#F0F2F5; --border:#DCE1E8;
+    --text:#1B2733; --muted:#5B6B7C; --faint:#8A97A6;
+    --gain:#1F7A5C; --loss:#B0402E; --gold:#A9782A;
+    --svr:#3B5A80; --gbm:#A9782A; --lstm:#1F7A5C; --ens:#6B4E85; --naive:#8A97A6;
+    --serif: 'Fraunces', serif; --mono: 'IBM Plex Mono', monospace; --sans: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); -webkit-font-smoothing:antialiased;}
+  a{color:inherit;}
+
+  .topbar{
+    border-bottom:1px solid var(--border); padding:14px 32px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; background:rgba(247,248,250,0.92); backdrop-filter:blur(8px); z-index:50;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:13px; color:var(--muted); letter-spacing:0.06em;}
+  .brand .dot{width:8px;height:8px;border-radius:50%; background:var(--gain); box-shadow:0 0 8px var(--gain);}
+  .topbar-right{display:flex; align-items:center; gap:14px;}
+  .ticker-tabs{display:flex; gap:4px; background:var(--panel); padding:4px; border-radius:8px; border:1px solid var(--border);}
+  .ticker-tab{
+    font-family:var(--mono); font-size:13px; font-weight:600; letter-spacing:0.04em;
+    padding:7px 18px; border-radius:6px; cursor:pointer; color:var(--muted);
+    transition:all .18s ease; border:none; background:transparent;
+  }
+  .ticker-tab.active{background:var(--panel-2); color:var(--gold); box-shadow:inset 0 0 0 1px var(--border);}
+  .ticker-tab:hover:not(.active){color:var(--text);}
+  .reload-btn{
+    font-family:var(--mono); font-size:12px; color:var(--muted); background:var(--panel);
+    border:1px solid var(--border); border-radius:6px; padding:8px 14px; cursor:pointer;
+  }
+  .reload-btn:hover{color:var(--text); border-color:var(--faint);}
+
+  .hero{padding:64px 32px 40px; max-width:1180px; margin:0 auto; border-bottom:1px solid var(--border);}
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; color:var(--faint); letter-spacing:0.14em;
+    text-transform:uppercase; display:flex; align-items:center; gap:10px; margin-bottom:18px;
+  }
+  .eyebrow::before{content:''; width:24px; height:1px; background:var(--faint);}
+  h1{font-family:var(--serif); font-weight:600; font-size:52px; line-height:1.08; margin:0 0 18px; letter-spacing:-0.01em; max-width:820px;}
+  h1 em{font-style:italic; color:var(--gold); font-weight:500;}
+  .hero p.lede{font-size:17px; line-height:1.65; color:var(--muted); max-width:640px; margin:0 0 28px;}
+  .hero-meta{display:flex; gap:36px; flex-wrap:wrap; margin-top:32px;}
+  .hero-stat{font-family:var(--mono);}
+  .hero-stat .num{font-size:26px; font-weight:600; color:var(--text); display:block;}
+  .hero-stat .lbl{font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:0.08em;}
+
+  .section{max-width:1180px; margin:0 auto; padding:56px 32px;}
+  .section-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; gap:10px;}
+  .section-head h2{font-family:var(--serif); font-size:28px; font-weight:600; margin:0; letter-spacing:-0.01em;}
+  .section-head .note{font-family:var(--mono); font-size:12px; color:var(--faint); max-width:380px; text-align:right;}
+  .divider{border:none; border-top:1px solid var(--border); margin:0;}
+
+  .scheme-banner{
+    display:flex; gap:28px; flex-wrap:wrap; align-items:center; background:var(--panel);
+    border:1px solid var(--border); border-radius:10px; padding:18px 24px; margin-bottom:28px;
+  }
+  .scheme-banner .tag{
+    font-family:var(--mono); font-size:11px; color:var(--gold); background:rgba(169,120,42,0.10);
+    padding:5px 12px; border-radius:20px; letter-spacing:0.04em;
+  }
+  .scheme-banner .item{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .scheme-banner .item b{color:var(--text); font-weight:600;}
+
+  .group-label{
+    font-family:var(--mono); font-size:10px; color:var(--faint); text-transform:uppercase;
+    letter-spacing:0.1em; padding:14px 24px 6px; background:var(--panel-2);
+  }
+  .scoreboard{border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); box-shadow:0 1px 3px rgba(27,39,51,0.04);}
+  .score-row{
+    display:grid; grid-template-columns:190px repeat(4,1fr) 110px;
+    align-items:center; padding:16px 24px; border-bottom:1px solid var(--border); transition:background .15s ease;
+  }
+  .score-row:last-child{border-bottom:none;}
+  .score-row:hover{background:var(--panel-2);}
+  .score-row.head-row{
+    font-family:var(--mono); font-size:11px; color:var(--faint); text-transform:uppercase;
+    letter-spacing:0.08em; padding:12px 24px; background:var(--panel-2);
+  }
+  .score-row.dim{opacity:0.72;}
+  .model-name{display:flex; align-items:center; gap:10px; font-family:var(--serif); font-size:16px; font-weight:600;}
+  .swatch{width:11px; height:11px; border-radius:3px; flex-shrink:0;}
+  .metric-cell{font-family:var(--mono); font-size:14px;}
+  .metric-cell .lbl{display:block; font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; font-family:var(--sans);}
+  .best-badge{
+    font-family:var(--mono); font-size:10px; font-weight:600; padding:4px 10px; border-radius:20px;
+    background:rgba(31,122,92,0.12); color:var(--gain); text-align:center; letter-spacing:0.05em; justify-self:end;
+  }
+  .pos{color:var(--gain);} .neg{color:var(--loss);}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; box-shadow:0 1px 3px rgba(27,39,51,0.04);}
+  .panel h3{font-family:var(--serif); font-size:17px; font-weight:600; margin:0 0 4px;}
+  .panel .sub{font-family:var(--mono); font-size:11px; color:var(--faint); margin-bottom:18px;}
+  .chart-wrap{position:relative; height:340px;}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .legend-row{display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--muted);}
+  .legend-row span{display:flex; align-items:center; gap:6px;}
+  .legend-row .sw{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+  .feat-list{display:flex; flex-direction:column; gap:10px;}
+  .feat-row{display:grid; grid-template-columns:150px 1fr 55px; align-items:center; gap:14px;}
+  .feat-row .fname{font-family:var(--mono); font-size:11.5px; color:var(--muted);}
+  .feat-bar-bg{height:10px; background:var(--panel-2); border-radius:4px; overflow:hidden;}
+  .feat-bar-fill{height:100%; border-radius:4px;}
+  .feat-row .fval{font-family:var(--mono); font-size:11px; color:var(--faint); text-align:right;}
+
+  .weights-row{display:flex; gap:14px; flex-wrap:wrap; margin-top:16px;}
+  .weight-chip{
+    font-family:var(--mono); font-size:12px; background:var(--panel-2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 16px;
+  }
+  .weight-chip .wl{color:var(--faint); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; display:block; margin-bottom:3px;}
+  .weight-chip .wv{color:var(--text); font-size:15px; font-weight:600;}
+
+  .method-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:20px;}
+  .method-card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; box-shadow:0 1px 3px rgba(27,39,51,0.04);}
+  .method-card .idx{font-family:var(--mono); color:var(--faint); font-size:12px; margin-bottom:10px;}
+  .method-card h4{font-family:var(--serif); font-size:18px; margin:0 0 10px; font-weight:600;}
+  .method-card p{font-size:13.5px; color:var(--muted); line-height:1.6; margin:0;}
+
+  .callout{
+    background:linear-gradient(135deg, rgba(169,120,42,0.07), rgba(169,120,42,0.015));
+    border:1px solid rgba(169,120,42,0.22); border-radius:10px; padding:22px 26px; margin-top:24px;
+  }
+  .callout p{font-size:13.5px; line-height:1.65; color:var(--muted); margin:0;}
+  .callout strong{color:var(--gold); font-weight:600;}
+
+  footer{
+    max-width:1180px; margin:0 auto; padding:32px; border-top:1px solid var(--border);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;
+    font-family:var(--mono); font-size:11px; color:var(--faint);
+  }
+
+  /* ---------- Loader / file-picker overlay ---------- */
+  #loaderOverlay{
+    position:fixed; inset:0; background:var(--bg); z-index:200;
+    display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px;
+    text-align:center; padding:32px;
+  }
+  #loaderOverlay .box{max-width:480px;}
+  #loaderOverlay h2{font-family:var(--serif); font-size:26px; margin:0 0 10px;}
+  #loaderOverlay p{color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 22px;}
+  .file-drop{
+    border:1.5px dashed var(--border); border-radius:10px; padding:28px; cursor:pointer;
+    font-family:var(--mono); font-size:13px; color:var(--muted); transition:all .15s ease;
+  }
+  .file-drop:hover{border-color:var(--gold); color:var(--gold);}
+  .file-drop input{display:none;}
+  #loadError{color:var(--loss); font-family:var(--mono); font-size:12px; margin-top:14px; min-height:16px;}
+  #dashboardRoot{display:none;}
+
+  @media (max-width:900px){
+    h1{font-size:36px;}
+    .grid-2{grid-template-columns:1fr;}
+    .method-grid{grid-template-columns:1fr;}
+    .score-row{grid-template-columns:1fr; gap:8px; padding:16px;}
+    .score-row.head-row{display:none;}
+    .best-badge{justify-self:start;}
+    .topbar{flex-direction:column; gap:12px; align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loaderOverlay">
+  <div class="box">
+    <h2>Loading results…</h2>
+    <p id="loaderMsg">Looking for <code>results.json</code> next to this file.</p>
+    <label class="file-drop" id="fileDrop">
+      Click to choose <b>results.json</b> manually<br>(needed if the automatic fetch is blocked by your browser)
+      <input type="file" id="fileInput" accept="application/json">
+    </label>
+    <div id="loadError"></div>
+  </div>
+</div>
+
+<div id="dashboardRoot">
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> RETURN-PREDICT / RESEARCH NOTE</div>
+  <div class="topbar-right">
+    <div class="ticker-tabs" id="tickerTabs"></div>
+    <button class="reload-btn" id="reloadBtn">↻ load new results.json</button>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="eyebrow">Quantitative Research — Model Comparison</div>
+  <h1>Predicting next-day returns is <em>mostly noise</em> — the question is which model admits it honestly.</h1>
+  <p class="lede">
+    SVR, Gradient Boosting, and an LSTM, evaluated with <strong style="color:var(--text)">walk-forward
+    validation</strong> — retrained on an expanding window and tested only on the days immediately
+    following each retrain — then compared against naive baselines and two ensembling strategies.
+  </p>
+  <div class="hero-meta" id="heroMeta"></div>
+</div>
+
+<div class="section" id="scoreboardSection">
+  <div class="section-head">
+    <h2>Model scoreboard</h2>
+    <div class="note">Lower RMSE/MAE is better · Higher R²/Directional Accuracy is better · best cell per column highlighted</div>
+  </div>
+  <div class="scheme-banner" id="schemeBanner"></div>
+  <div class="scoreboard">
+    <div class="score-row head-row">
+      <div>Model</div>
+      <div class="metric-cell">RMSE</div>
+      <div class="metric-cell">MAE</div>
+      <div class="metric-cell">R²</div>
+      <div class="metric-cell">Directional Acc.</div>
+      <div></div>
+    </div>
+    <div class="group-label">Base models</div>
+    <div id="scoreRowsBase"></div>
+    <div class="group-label">Naive baselines</div>
+    <div id="scoreRowsNaive"></div>
+    <div class="group-label">Ensembles</div>
+    <div id="scoreRowsEnsemble"></div>
+  </div>
+  <div class="callout" id="scoreCallout"></div>
+  <div class="callout" id="stackingCallout" style="display:none;"></div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+  <div class="section-head">
+    <h2>Predicted vs. actual returns</h2>
+    <div class="note">Concatenated out-of-sample predictions across all walk-forward folds</div>
+  </div>
+  <div class="panel">
+    <div class="chart-wrap"><canvas id="predChart"></canvas></div>
+    <div class="legend-row" id="predLegend"></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <h2>Where the models disagree</h2>
+    <div class="note">Absolute prediction error over time, 10-day rolling mean</div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Rolling error (10d mean)</h3>
+      <div class="sub">Smoothed |actual − predicted|, across fold boundaries</div>
+      <div class="chart-wrap" style="height:280px;"><canvas id="errChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>LSTM training curve</h3>
+      <div class="sub" id="lstmSub">Train vs. validation loss (MSE), final fold</div>
+      <div class="chart-wrap" style="height:280px;"><canvas id="lossChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <h2>What drives the forecast</h2>
+    <div class="note">Two views of feature importance on the final fold's Gradient Boosting model</div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3>Impurity-based importance</h3>
+      <div class="sub">Built into scikit-learn's Gradient Boosting</div>
+      <div class="feat-list" id="featListGini"></div>
+    </div>
+    <div class="panel">
+      <h3>SHAP importance</h3>
+      <div class="sub" id="shapSub">Mean |SHAP value| — accounts for feature interactions</div>
+      <div class="feat-list" id="featListShap"></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <h2>Backtested trading strategy</h2>
+    <div class="note" id="backtestNote">Sign-of-prediction position, transaction costs included</div>
+  </div>
+  <div class="panel">
+    <div class="chart-wrap"><canvas id="equityChart"></canvas></div>
+    <div class="legend-row" id="equityLegend"></div>
+  </div>
+  <div class="scoreboard" style="margin-top:20px;">
+    <div class="score-row head-row" style="grid-template-columns:190px repeat(4,1fr);">
+      <div>Strategy</div>
+      <div class="metric-cell">Cumulative Return</div>
+      <div class="metric-cell">Sharpe (ann.)</div>
+      <div class="metric-cell">Max Drawdown</div>
+      <div class="metric-cell">Win Rate / Trades</div>
+    </div>
+    <div id="backtestRows"></div>
+  </div>
+  <div class="callout" id="backtestCallout"></div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <h2>Method</h2>
+  </div>
+  <div class="method-grid">
+    <div class="method-card">
+      <div class="idx">Validation</div>
+      <h4>Walk-forward, expanding window</h4>
+      <p>Rather than one fixed train/test split, the model retrains on each new fold and is scored
+      only on the days immediately after — closer to how it would actually be deployed, and it
+      prevents one lucky split from flattering a model.</p>
+    </div>
+    <div class="method-card">
+      <div class="idx">Baselines</div>
+      <h4>Two dumb benchmarks</h4>
+      <p>Predict-zero and predict-yesterday's-return are scored on the exact same out-of-sample
+      points as the ML models. If a model can't beat these, its added complexity isn't earning
+      its keep.</p>
+    </div>
+    <div class="method-card">
+      <div class="idx">Ensembling</div>
+      <h4>Average + learned blend</h4>
+      <p>A simple average of the three models, and a non-negative linear blend (stacking) fit on
+      the first part of the out-of-sample period and tested only on the remainder — so the blend
+      never sees its own test data while fitting.</p>
+    </div>
+    <div class="method-card">
+      <div class="idx">Backtest</div>
+      <h4>Sign-of-prediction, cost-aware</h4>
+      <p>Each day's position is the sign of the predicted return (long / short / flat), with a
+      5bps cost charged on every position change. This is intentionally simple — no position
+      sizing, no slippage model, no borrow cost — a lower bound on real-world friction, not an
+      upper one.</p>
+    </div>
+  </div>
+  <div class="callout">
+    <p><strong>Reading a negative R² honestly:</strong> next-day equity returns are dominated by
+    information that isn't in price/volume history at all — news, macro surprises, order flow.
+    When a naive predict-zero baseline beats every ML model on RMSE, that's not a failed
+    experiment — it's the finding: for this feature set and horizon, model complexity isn't
+    buying real predictive power, and a rigorous comparison is what surfaces that rather than
+    hiding it.</p>
+  </div>
+</div>
+
+<footer>
+  <div>SVR · Gradient Boosting · LSTM — walk-forward validated, benchmarked against naive baselines,
+  combined via ensembling.</div>
+  <div>Python · PyTorch · scikit-learn · SHAP</div>
+</footer>
+
+</div><!-- #dashboardRoot -->
+
+<script>
+const MODEL_COLORS = {
+  SVR: '#3B5A80', GradientBoosting: '#A9782A', LSTM: '#1F7A5C',
+  NaiveZero: '#8A97A6', NaivePersistence: '#B7C0CB',
+  EnsembleAverage: '#6B4E85', EnsembleStacking: '#9C7DB0',
+  BuyAndHold: '#1B2733',
+};
+const MODEL_LABELS = {
+  SVR: 'SVR', GradientBoosting: 'Gradient Boosting', LSTM: 'LSTM',
+  NaiveZero: 'Predict Zero', NaivePersistence: "Predict Yesterday's Return",
+  EnsembleAverage: 'Ensemble (Average)', EnsembleStacking: 'Ensemble (Stacking)',
+  BuyAndHold: 'Buy & Hold',
+};
+const BACKTEST_MODELS = ['SVR', 'GradientBoosting', 'LSTM', 'EnsembleAverage', 'BuyAndHold'];
+const BASE_MODELS = ['SVR', 'GradientBoosting', 'LSTM'];
+const NAIVE_MODELS = ['NaiveZero', 'NaivePersistence'];
+const ENSEMBLE_MODELS = ['EnsembleAverage', 'EnsembleStacking'];
+
+let RESULTS = null;
+let currentTicker = null;
+let charts = {};
+
+function fmtPct(x){ return (x*100).toFixed(2) + '%'; }
+function fmtNum(x, d=4){ return x.toFixed(d); }
+
+function bestModel(metricsObj, key, higherBetter, pool){
+  let best = null, bestVal = higherBetter ? -Infinity : Infinity;
+  for (const m of pool){
+    if (!metricsObj[m]) continue;
+    const val = metricsObj[m][key];
+    if (higherBetter ? val > bestVal : val < bestVal){ bestVal = val; best = m; }
+  }
+  return best;
+}
+
+function renderTabs(){
+  const el = document.getElementById('tickerTabs');
+  el.innerHTML = '';
+  Object.keys(RESULTS).forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'ticker-tab' + (t === currentTicker ? ' active' : '');
+    b.textContent = t;
+    b.onclick = () => { currentTicker = t; renderAll(); };
+    el.appendChild(b);
+  });
+}
+
+function renderHeroMeta(){
+  const d = RESULTS[currentTicker];
+  const el = document.getElementById('heroMeta');
+  const scheme = d.validation_scheme || {};
+  el.innerHTML = `
+    <div class="hero-stat"><span class="num">${scheme.n_folds ?? '—'}</span><span class="lbl">Walk-forward folds</span></div>
+    <div class="hero-stat"><span class="num">${(d.n_test ?? scheme.n_oos_points ?? 0).toLocaleString()}</span><span class="lbl">Out-of-sample days</span></div>
+    <div class="hero-stat"><span class="num">${d.n_train?.toLocaleString() ?? '—'}</span><span class="lbl">Initial train days</span></div>
+    <div class="hero-stat"><span class="num">${d.n_features}</span><span class="lbl">Engineered features</span></div>
+  `;
+}
+
+function renderSchemeBanner(){
+  const d = RESULTS[currentTicker];
+  const s = d.validation_scheme;
+  const el = document.getElementById('schemeBanner');
+  if (!s){ el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <span class="tag">WALK-FORWARD</span>
+    <span class="item"><b>${s.n_folds}</b> expanding-window folds</span>
+    <span class="item">initial train window: <b>${(s.initial_train_frac*100).toFixed(0)}%</b> of history</span>
+    <span class="item"><b>${s.n_oos_points.toLocaleString()}</b> total out-of-sample predictions</span>
+  `;
+}
+
+function scoreRowHTML(key, m, badgeKeys, dim){
+  const overallBest = badgeKeys.filter(x => x === key).length;
+  return `
+    <div class="score-row${dim ? ' dim' : ''}">
+      <div class="model-name"><span class="swatch" style="background:${MODEL_COLORS[key]}"></span>${MODEL_LABELS[key]}</div>
+      <div class="metric-cell ${badgeKeys[0]===key?'pos':''}"><span class="lbl">RMSE</span>${fmtNum(m.rmse)}</div>
+      <div class="metric-cell ${badgeKeys[1]===key?'pos':''}"><span class="lbl">MAE</span>${fmtNum(m.mae)}</div>
+      <div class="metric-cell ${badgeKeys[2]===key?'pos':(m.r2<0?'neg':'')}"><span class="lbl">R²</span>${fmtNum(m.r2,3)}</div>
+      <div class="metric-cell ${badgeKeys[3]===key?'pos':''}"><span class="lbl">Dir. Acc.</span>${fmtPct(m.directional_accuracy)}</div>
+      <div class="best-badge" style="${overallBest>=2?'':'visibility:hidden'}">TOP MODEL</div>
+    </div>`;
+}
+
+function renderScoreboard(){
+  const d = RESULTS[currentTicker];
+  const m = d.metrics;
+  const allPool = [...BASE_MODELS, ...NAIVE_MODELS, ...ENSEMBLE_MODELS].filter(k => m[k]);
+  const bestRmse = bestModel(m, 'rmse', false, allPool);
+  const bestMae = bestModel(m, 'mae', false, allPool);
+  const bestR2 = bestModel(m, 'r2', true, allPool);
+  const bestDir = bestModel(m, 'directional_accuracy', true, allPool);
+  const badgeKeys = [bestRmse, bestMae, bestR2, bestDir];
+
+  document.getElementById('scoreRowsBase').innerHTML = BASE_MODELS.filter(k=>m[k]).map(k => scoreRowHTML(k, m[k], badgeKeys, false)).join('');
+  document.getElementById('scoreRowsNaive').innerHTML = NAIVE_MODELS.filter(k=>m[k]).map(k => scoreRowHTML(k, m[k], badgeKeys, true)).join('');
+  document.getElementById('scoreRowsEnsemble').innerHTML = ENSEMBLE_MODELS.filter(k=>m[k]).map(k => scoreRowHTML(k, m[k], badgeKeys, false)).join('');
+
+  const naiveBeatsAll = NAIVE_MODELS.includes(bestRmse);
+  const calloutEl = document.getElementById('scoreCallout');
+  if (naiveBeatsAll){
+    calloutEl.innerHTML = `<p><strong>${MODEL_LABELS[bestRmse]}</strong> has the lowest RMSE of every
+      model on ${currentTicker} — a naive baseline is beating all three ML models on raw error. That's
+      the honest finding for this feature set and horizon, not a bug in the pipeline.</p>`;
+  } else {
+    calloutEl.innerHTML = `<p><strong>${MODEL_LABELS[bestDir]}</strong> leads on directional accuracy for
+      ${currentTicker} at <strong>${fmtPct(m[bestDir].directional_accuracy)}</strong>, the metric that
+      matters most for a strategy trading on the sign of the forecast.</p>`;
+  }
+
+  const stackEl = document.getElementById('stackingCallout');
+  if (m.EnsembleStacking && m.EnsembleStacking.weights){
+    const w = m.EnsembleStacking.weights;
+    stackEl.style.display = 'block';
+    stackEl.innerHTML = `<p><strong>Stacking blend weights</strong> (fit on the first part of the
+      out-of-sample period, evaluated only on the rest): SVR <strong>${w.SVR}</strong>,
+      Gradient Boosting <strong>${w.GradientBoosting}</strong>, LSTM <strong>${w.LSTM}</strong>,
+      intercept <strong>${w.intercept}</strong>. Weights near zero mean the meta-model found that
+      model's predictions weren't adding value beyond the others.</p>`;
+  } else {
+    stackEl.style.display = 'none';
+  }
+}
+
+function destroyChart(id){ if (charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function renderPredChart(){
+  const d = RESULTS[currentTicker];
+  const p = d.predictions;
+  destroyChart('pred');
+  const ctx = document.getElementById('predChart').getContext('2d');
+  const datasets = [
+    { label: 'Actual', data: p.actual, borderColor: '#1B2733', borderWidth: 2, pointRadius: 0, tension: 0.1, order: 0 },
+  ];
+  BASE_MODELS.forEach(k => {
+    if (p[k]) datasets.push({ label: MODEL_LABELS[k], data: p[k], borderColor: MODEL_COLORS[k], borderWidth: 1.3, pointRadius: 0, tension: 0.1, borderDash: [3,3] });
+  });
+  if (p.EnsembleAverage) datasets.push({ label: 'Ensemble (Average)', data: p.EnsembleAverage, borderColor: MODEL_COLORS.EnsembleAverage, borderWidth: 1.6, pointRadius: 0, tension: 0.1 });
+
+  charts['pred'] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: p.dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#FFFFFF', titleColor: '#1B2733', bodyColor: '#5B6B7C', borderColor: '#DCE1E8', borderWidth: 1,
+        callbacks: { label: (c) => `${c.dataset.label}: ${(c.parsed.y*100).toFixed(3)}%` }
+      }},
+      scales: {
+        x: { ticks: { color: '#8A97A6', maxTicksLimit: 8, font: {family: 'IBM Plex Mono', size: 10} }, grid: { color: '#EDEFF3' } },
+        y: { ticks: { color: '#8A97A6', font: {family: 'IBM Plex Mono', size: 10}, callback: (v) => (v*100).toFixed(1)+'%' }, grid: { color: '#EDEFF3' } }
+      }
+    }
+  });
+  document.getElementById('predLegend').innerHTML = datasets.map(ds =>
+    `<span><span class="sw" style="background:${ds.borderColor}"></span>${ds.label}</span>`
+  ).join('');
+}
+
+function rollingMean(arr, w){
+  const out = [];
+  for (let i=0;i<arr.length;i++){
+    const s = Math.max(0, i-w+1);
+    const slice = arr.slice(s, i+1);
+    out.push(slice.reduce((a,b)=>a+b,0)/slice.length);
+  }
+  return out;
+}
+
+function renderErrChart(){
+  const d = RESULTS[currentTicker];
+  const p = d.predictions;
+  const errs = {};
+  BASE_MODELS.forEach(key => {
+    if (p[key]) errs[key] = rollingMean(p.actual.map((a,i)=>Math.abs(a - p[key][i])), 10);
+  });
+  destroyChart('err');
+  const ctx = document.getElementById('errChart').getContext('2d');
+  charts['err'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: p.dates,
+      datasets: BASE_MODELS.filter(k=>errs[k]).map(key => ({
+        label: MODEL_LABELS[key], data: errs[key], borderColor: MODEL_COLORS[key],
+        borderWidth: 1.6, pointRadius: 0, tension: 0.2, fill: false
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#FFFFFF', titleColor: '#1B2733', bodyColor: '#5B6B7C', borderColor: '#DCE1E8', borderWidth: 1,
+      }},
+      scales: {
+        x: { ticks: { color: '#8A97A6', maxTicksLimit: 6, font: {family: 'IBM Plex Mono', size: 10} }, grid: { color: '#EDEFF3' } },
+        y: { ticks: { color: '#8A97A6', font: {family: 'IBM Plex Mono', size: 10}, callback: (v)=>(v*100).toFixed(2)+'%' }, grid: { color: '#EDEFF3' } }
+      }
+    }
+  });
+}
+
+function renderLossChart(){
+  const d = RESULTS[currentTicker];
+  const h = d.lstm_history || [];
+  destroyChart('loss');
+  document.getElementById('lstmSub').textContent =
+    h.length ? `Train vs. validation loss (MSE), final fold — ${h.length} epochs (early stopping)` : 'No LSTM history available';
+  const ctx = document.getElementById('lossChart').getContext('2d');
+  charts['loss'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: h.map(x => x.epoch),
+      datasets: [
+        { label: 'Train loss', data: h.map(x => x.train_loss), borderColor: MODEL_COLORS.LSTM, borderWidth: 1.8, pointRadius: 0, tension: 0.2 },
+        { label: 'Val loss', data: h.map(x => x.val_loss), borderColor: '#B0402E', borderWidth: 1.8, pointRadius: 0, tension: 0.2, borderDash: [4,3] },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#5B6B7C', font: {family: 'IBM Plex Mono', size: 11} } }, tooltip: {
+        backgroundColor: '#FFFFFF', titleColor: '#1B2733', bodyColor: '#5B6B7C', borderColor: '#DCE1E8', borderWidth: 1,
+      }},
+      scales: {
+        x: { ticks: { color: '#8A97A6', font: {family: 'IBM Plex Mono', size: 10} }, grid: { color: '#EDEFF3' } },
+        y: { ticks: { color: '#8A97A6', font: {family: 'IBM Plex Mono', size: 10} }, grid: { color: '#EDEFF3' } }
+      }
+    }
+  });
+}
+
+function renderFeatList(elId, feats, color){
+  const el = document.getElementById(elId);
+  if (!feats || !feats.length){ el.innerHTML = `<div style="color:var(--faint); font-family:var(--mono); font-size:12px;">Not available in this results.json — install shap and re-run train_advanced.py.</div>`; return; }
+  const max = Math.max(...feats.map(f => f.importance));
+  el.innerHTML = feats.map(f => `
+    <div class="feat-row">
+      <div class="fname">${f.feature}</div>
+      <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${(f.importance/max*100).toFixed(1)}%; background:${color}"></div></div>
+      <div class="fval">${(f.importance*100).toFixed(1)}%</div>
+    </div>
+  `).join('');
+}
+
+function renderFeatures(){
+  const d = RESULTS[currentTicker];
+  renderFeatList('featListGini', d.feature_importance, 'linear-gradient(90deg, var(--gold), #C9A567)');
+  renderFeatList('featListShap', d.shap_importance, 'linear-gradient(90deg, var(--lstm), #4FA37B)');
+}
+
+function renderBacktest(){
+  const d = RESULTS[currentTicker];
+  const bt = d.backtest;
+  const panel = document.getElementById('equityChart').closest('.section');
+  if (!bt){
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  document.getElementById('backtestNote').textContent =
+    `Sign-of-prediction position, ${bt.transaction_cost_bps}bps transaction cost per position change`;
+
+  destroyChart('equity');
+  const ctx = document.getElementById('equityChart').getContext('2d');
+  const datasets = BACKTEST_MODELS.filter(k => bt.strategies[k]).map(k => ({
+    label: MODEL_LABELS[k],
+    data: bt.strategies[k].equity_curve.map(v => v - 1),
+    borderColor: MODEL_COLORS[k],
+    borderWidth: k === 'BuyAndHold' ? 2 : 1.4,
+    pointRadius: 0,
+    tension: 0.1,
+    borderDash: k === 'BuyAndHold' ? [] : [3,3],
+  }));
+  charts['equity'] = new Chart(ctx, {
+    type: 'line',
+    data: { labels: bt.dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#FFFFFF', titleColor: '#1B2733', bodyColor: '#5B6B7C', borderColor: '#DCE1E8', borderWidth: 1,
+        callbacks: { label: (c) => `${c.dataset.label}: ${(c.parsed.y*100).toFixed(1)}%` }
+      }},
+      scales: {
+        x: { ticks: { color: '#8A97A6', maxTicksLimit: 8, font: {family: 'IBM Plex Mono', size: 10} }, grid: { color: '#EDEFF3' } },
+        y: { ticks: { color: '#8A97A6', font: {family: 'IBM Plex Mono', size: 10}, callback: (v) => (v*100).toFixed(0)+'%' }, grid: { color: '#EDEFF3' } }
+      }
+    }
+  });
+  document.getElementById('equityLegend').innerHTML = datasets.map(ds =>
+    `<span><span class="sw" style="background:${ds.borderColor}"></span>${ds.label}</span>`
+  ).join('');
+
+  const bestSharpeKey = BACKTEST_MODELS.filter(k=>bt.strategies[k])
+    .reduce((a,b) => bt.strategies[b].sharpe > bt.strategies[a].sharpe ? b : a);
+
+  document.getElementById('backtestRows').innerHTML = BACKTEST_MODELS.filter(k=>bt.strategies[k]).map(k => {
+    const s = bt.strategies[k];
+    const isBest = k === bestSharpeKey;
+    return `
+      <div class="score-row" style="grid-template-columns:190px repeat(4,1fr);">
+        <div class="model-name"><span class="swatch" style="background:${MODEL_COLORS[k]}"></span>${MODEL_LABELS[k]}</div>
+        <div class="metric-cell ${s.cumulative_return>0?'pos':'neg'}">${(s.cumulative_return*100).toFixed(1)}%</div>
+        <div class="metric-cell ${isBest?'pos':''}">${s.sharpe}</div>
+        <div class="metric-cell neg">${(s.max_drawdown*100).toFixed(1)}%</div>
+        <div class="metric-cell">${(s.win_rate*100).toFixed(1)}% <span style="color:var(--faint)">/ ${s.n_trades}</span></div>
+      </div>`;
+  }).join('');
+
+  const bh = bt.strategies.BuyAndHold;
+  const bhWins = bh && bh.sharpe >= bt.strategies[bestSharpeKey].sharpe;
+  const calloutEl = document.getElementById('backtestCallout');
+  if (bhWins){
+    calloutEl.innerHTML = `<p><strong>Buy &amp; Hold wins</strong> on risk-adjusted return (Sharpe
+      ${bh.sharpe}) for ${currentTicker} once trading costs are included — none of the model-driven
+      strategies produced a real edge over simply holding the stock. That's a legitimate, common
+      outcome in short-horizon return prediction, and the backtest exists specifically to surface it
+      rather than stop at the error metrics above.</p>`;
+  } else {
+    const winner = bt.strategies[bestSharpeKey];
+    calloutEl.innerHTML = `<p><strong>${MODEL_LABELS[bestSharpeKey]}</strong> produced the best
+      risk-adjusted return for ${currentTicker} (Sharpe ${winner.sharpe}, ${(winner.cumulative_return*100).toFixed(1)}%
+      cumulative), ahead of Buy &amp; Hold (Sharpe ${bh ? bh.sharpe : 'n/a'}) — worth treating as a
+      promising but small-sample result rather than a proven edge.</p>`;
+  }
+}
+
+function renderAll(){
+  renderTabs();
+  renderHeroMeta();
+  renderSchemeBanner();
+  renderScoreboard();
+  renderPredChart();
+  renderErrChart();
+  renderLossChart();
+  renderFeatures();
+  renderBacktest();
+}
+
+function showDashboard(data){
+  RESULTS = data;
+  currentTicker = Object.keys(RESULTS)[0];
+  document.getElementById('loaderOverlay').style.display = 'none';
+  document.getElementById('dashboardRoot').style.display = 'block';
+  renderAll();
+}
+
+function tryAutoFetch(){
+  fetch('./results.json')
+    .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
+    .then(data => showDashboard(data))
+    .catch(() => {
+      document.getElementById('loaderMsg').textContent =
+        'Could not auto-load results.json (browsers block local file fetches). Choose it manually below.';
+    });
+}
+
+document.getElementById('fileDrop').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      showDashboard(data);
+      document.getElementById('loadError').textContent = '';
+    } catch (err) {
+      document.getElementById('loadError').textContent = 'Could not parse that file as JSON: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+document.getElementById('reloadBtn').addEventListener('click', () => {
+  document.getElementById('dashboardRoot').style.display = 'none';
+  document.getElementById('loaderOverlay').style.display = 'flex';
+  document.getElementById('loaderMsg').textContent = 'Choose a results.json file to load.';
+});
+
+tryAutoFetch();
+</script>
+
+</body>
+</html>
