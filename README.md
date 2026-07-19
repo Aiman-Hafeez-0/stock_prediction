@@ -12,25 +12,25 @@ One interesting takeaway from this project was that, on this dataset, a simple b
 
 **Live Dashboard**
 
-> **Add your deployed link here**
-
+> 
 ```
-https://your-live-demo-link.com
+https://stock-prediction-lemon-one.vercel.app
 ```
 
 ---
 
-# 📸 Screenshots
+## Dashboard
 
-### Dashboard
-
-> _(Add screenshot here)_
+![Dashboard](stock-prediction.png)
 
 ---
 
-### Model Comparison
+## Model Comparison
 
-> _(Add screenshot here)_
+![Model Comparison](models.png)
+
+---
+
 
 # Features
 
