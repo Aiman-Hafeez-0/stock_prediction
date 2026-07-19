@@ -13,9 +13,7 @@ One interesting takeaway from this project was that, on this dataset, a simple b
 **Live Dashboard**
 
 > 
-```
-https://stock-prediction-lemon-one.vercel.app
-```
+## 🔴 Live Demo → [https://stock-prediction-lemon-one.vercel.app]
 
 ---
 
